@@ -1,0 +1,8 @@
+Resources:
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: helloworldbucketsdf324sdf345
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
