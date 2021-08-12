@@ -1,0 +1,24 @@
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-0c2b8ca1dad447f8a  # Amazon Linux 2 AMI (HVM), SSD Volume Type
+    us-west-1: 
+      AMI: ami-0f6c23a2bfb63fbf1  # Microsoft Windows Server 2019 Base
+    eu-west-1:
+      AMI: ami-0ec23856b3bad62d3  # Red Hat Enterprise Linux 8 (HVM), SSD Volume Type
+    ap-southeast-1:
+      AMI: ami-03e8d3c5c16f119bb  # SUSE Linux Enterprise Server 15 SP2 (HVM), SSD Volume Type
+    ap-southeast-2:
+      AMI: ami-0d2f34c92aa48cd95  # Debian 10 (HVM), SSD Volume Type
+
+Resources:
+  Ec2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId:
+        Fn::FindInMap:
+        - RegionMap
+        - !Ref AWS::Region
+        - AMI
+      

@@ -1,0 +1,24 @@
+Resources:
+  Ec2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-09e67e426f25ce0d7 # Ubuntu Server 20.04 LTS (HVM), SSD Volume Type
+      SecurityGroups:   # SG dependency is not relevant to this example
+        - !Ref MySecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: !Join
+            - ""
+            - - "EC2 Instance in "
+              - !Ref AWS::Region  # appending Region to the Instance name using Pseudo parameters
+  
+  MySecurityGroup:  # This SG dependency is not relevant to this example since this is just to demonstrate the use of Pseudo Parameters
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: Enabling port 22 for SSH access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0

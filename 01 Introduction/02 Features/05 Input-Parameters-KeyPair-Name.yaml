@@ -1,0 +1,30 @@
+Parameters:
+  NameOfService:
+    Description: "The name of the service this stack(EC2) is to be used for."
+    Type: String
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access into the server
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources: 
+  Ec2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-09e67e426f25ce0d7 # Ubuntu Server 20.04 LTS (HVM), SSD Volume Type
+      SecurityGroups:
+        - !Ref MySecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: !Ref NameOfService
+      KeyName: !Ref KeyName
+      
+  MySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Open port 22 of EC2
+      SecurityGroupIngress:   
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0

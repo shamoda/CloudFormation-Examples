@@ -1,0 +1,21 @@
+Resources:
+  Ec2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-09e67e426f25ce0d7 # Ubuntu Server 20.04 LTS (HVM), SSD Volume Type
+      Tags:
+        - Key: Name
+          Value: !Join [" ", [Attaching, SG, to, EC2]]
+      SecurityGroups:
+        - !Ref MySecurityGroup  # Ref is a Intrinsic FN | First SG will be created and then the EC2 Cz EC2 is depending on SG 
+
+  MySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Open port 22 of EC2
+      SecurityGroupIngress:   # In SG by default all ports are CLOSED | In ACL by default all ports are OPEN
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
