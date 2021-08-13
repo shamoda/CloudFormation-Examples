@@ -1,0 +1,87 @@
+Parameters:
+  NameOfService:
+    Description: "The name of the service this stack(EC2) is to be used for."
+    Type: String
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access into the server
+    Type: AWS::EC2::KeyPair::KeyName
+  VpcId:
+    Description: Enter the VPC ID
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Description: Enter the Subnet ID
+    Type: AWS::EC2::Subnet::Id
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-0c2b8ca1dad447f8a  # Amazon Linux 2 AMI (HVM), SSD Volume Type
+    us-west-1: 
+      AMI: ami-0f6c23a2bfb63fbf1  # Microsoft Windows Server 2019 Base
+    eu-west-1:
+      AMI: ami-0ec23856b3bad62d3  # Red Hat Enterprise Linux 8 (HVM), SSD Volume Type
+    ap-southeast-1:
+      AMI: ami-03e8d3c5c16f119bb  # SUSE Linux Enterprise Server 15 SP2 (HVM), SSD Volume Type
+    ap-southeast-2:
+      AMI: ami-0d2f34c92aa48cd95  # Debian 10 (HVM), SSD Volume Type
+
+Resources:
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Metadata:   # this section will only execute at provisioning time Cz UserData executes at that time only
+      AWS::CloudFormation::Init:
+        config:
+          packages:
+            yum:
+              httpd: []
+              php: []
+          files:
+            /var/www/html/index.php:
+              content: !Sub |
+                <?php print "Hello world SMJ was here!"; ?>
+          services:
+            sysvinit:
+              httpd:
+                enabled: true
+                ensureRunning: true
+    Properties:
+      InstanceType: t2.micro
+      ImageId:
+        Fn::FindInMap:
+        - RegionMap
+        - !Ref AWS::Region
+        - AMI
+      SecurityGroupIds:
+        - !Ref MySecurityGroup
+      SubnetId: !Ref SubnetId
+      Tags:
+        - Key: Name
+          Value: !Ref NameOfService
+      KeyName: !Ref KeyName
+      UserData:         # Userdata section will execute only once at the provisioning of EC2 | will not execute if changeset Replacement = FALSE
+        'Fn::Base64':
+          !Sub |
+            #!/bin/bash -xe
+            # Ensure AWS CFN Bootstrap is the latest
+            yum install -y aws-cfn-bootstrap
+            # Install the files and packages from the metadata
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource Ec2Instance --region ${AWS::Region}   # execute metadata section with parameters
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Open port 22 and 80 (updating to demonstrate changeset behaviour)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+
+Outputs:
+  Website:
+    Description: The public DNS for the EC2 Instance
+    Value: !Sub 'http://${Ec2Instance.PublicDnsName}'

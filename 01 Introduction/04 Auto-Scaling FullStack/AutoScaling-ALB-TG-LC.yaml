@@ -1,0 +1,127 @@
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access into the server
+    Type: AWS::EC2::KeyPair::KeyName
+  VpcId:
+    Description: Enter the VPC ID
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Description: Enter the Subnet ID
+    Type: List<AWS::EC2::Subnet::Id>  # Accepting a list of subnets
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-0c2b8ca1dad447f8a  # Amazon Linux 2 AMI (HVM), SSD Volume Type
+    us-west-1: 
+      AMI: ami-0f6c23a2bfb63fbf1  # Microsoft Windows Server 2019 Base
+    eu-west-1:
+      AMI: ami-0ec23856b3bad62d3  # Red Hat Enterprise Linux 8 (HVM), SSD Volume Type
+    ap-southeast-1:
+      AMI: ami-03e8d3c5c16f119bb  # SUSE Linux Enterprise Server 15 SP2 (HVM), SSD Volume Type
+    ap-southeast-2:
+      AMI: ami-0d2f34c92aa48cd95  # Debian 10 (HVM), SSD Volume Type
+
+Resources:
+  LoadBalancer: # Application Load Balancer
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets: !Ref SubnetIds
+  LoadBalancerListener: # Port 80 Listener for ALB
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: TargetGroup
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AvailabilityZones: !GetAZs
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      MinSize: 1
+      MaxSize: 3
+      TargetGroupARNs:
+        - !Ref TargetGroup
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      Comment: Install php and httpd
+      AWS::CloudFormation::Init:
+        config:
+          packages:
+            yum:
+              httpd: []
+              php: []
+          files:
+            /var/www/html/index.php:
+              content: !Sub |
+                <?php print "Hello world SMJ was here!"; ?>
+          services:
+            sysvinit:
+              httpd:
+                enabled: true
+                ensureRunning: true
+    Properties:
+      KeyName: !Ref KeyName
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref EC2SecurityGroup
+      ImageId:
+        Fn::FindInMap:
+        - RegionMap
+        - !Ref AWS::Region
+        - AMI
+      UserData:
+        'Fn::Base64':
+          !Sub |
+            #!/bin/bash -xe
+            # Ensure AWS CFN Bootstrap is the latest
+            yum install -y aws-cfn-bootstrap
+            # Install the files and packages from the metadata
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource LaunchConfiguration --region ${AWS::Region}
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALBSecurityGroup
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Open port 22 and 80 (updating to demonstrate changeset behaviour)
+  EC2InboundRule: # EC2 only accept traffic from ALB
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      SourceSecurityGroupId:
+        !GetAtt
+        - ALBSecurityGroup
+        - GroupId
+      GroupId:
+        !GetAtt
+        - EC2SecurityGroup
+        - GroupId
+        
+
+Outputs:
+  PublicDns:
+    Description: The public DNS for the EC2 Instance
+    Value: !Sub 'http://${LoadBalancer.DNSName}'
